@@ -3,7 +3,7 @@
 # ==============================================================================
 
 APP_VERSION = "1.1.0"
-GITHUB_REPO = "TU_USUARIO/TU_REPO"
+GITHUB_REPO = "Vanessaalberti/ProcesadorFichadas"
 
 # Paleta corporativa exacta (Modo Claro)
 COLOR_BG_OUTER = "#112239"           # Azul marino profundo del marco exterior

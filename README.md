@@ -11,9 +11,10 @@ ProcesadorFichadas/
 ├── main.py               # Punto de entrada y cargador de parches incrementales
 ├── requirements.txt      # Librerías base (customtkinter, pandas, openpyxl, xlrd, tkinterdnd2, requests)
 ├── .gitignore            # Evita que Git suba archivos pesados (.exe, .xlsx, carpetas temporales)
+├── vercel.json           # Configuración automática para desplegar la web de docs/ en Vercel
 ├── README.md             # Documentación del proyecto
 ├── docs/
-│   └── index.html        # Página web oficial de descarga (lista para GitHub Pages gratis)
+│   └── index.html        # Página web oficial de descarga (lista para Vercel o GitHub Pages)
 └── src/
     ├── __init__.py
     ├── config.py         # Versión de la app (APP_VERSION), repositorio (GITHUB_REPO) y paleta de colores
@@ -43,10 +44,10 @@ Por eso, [`src/updater.py`](src/updater.py) y [`main.py`](main.py) implementan *
 
 ### 1. Configuración inicial (solo la primera vez antes de mandarle el `.exe` a tu jefa):
 1. Crea un repositorio **Público** en GitHub.
-2. En [`src/config.py`](src/config.py), reemplaza `"TU_USUARIO/TU_REPO"` por tu usuario y nombre de repositorio real:
+2. En [`src/config.py`](src/config.py), el repositorio oficial ya se encuentra configurado como:
    ```python
    APP_VERSION = "1.1.0"
-   GITHUB_REPO = "tu_usuario_github/ProcesadorFichadas"
+   GITHUB_REPO = "Vanessaalberti/ProcesadorFichadas"
    ```
 3. Compila el `.exe` una sola vez (`pyinstaller --noconfirm ProcesadorFichadas.spec`) y envíaselo a tu jefa.
 
