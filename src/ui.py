@@ -47,8 +47,11 @@ from src.config import (
 )
 from src.exporter import exportar_excel_profesional
 from src.processor import (
+    calcular_minutos_trabajados,
     cargar_archivo_crudo,
     filtrar_dataframe_según_modo,
+    formatear_minutos_hhmm,
+     normalizar_hora_hhmm,
     obtener_estadisticas_df,
     procesar_fichadas_df,
 )
@@ -92,6 +95,8 @@ class ProcesadorFichadasApp(ctk.CTk, TkinterDnD.DnDWrapper):
         self.estadisticas_actuales: Dict[str, int] = obtener_estadisticas_df(None)
         self._procesando: bool = False
         self._modo_filtro: str = "todos"
+        self._editor_celda: Optional[tk.Entry] = None
+        self._confirmar_edicion_activa_fn = None
 
         self._construir_ui()
         self._configurar_estilo_treeview()
@@ -445,6 +450,7 @@ class ProcesadorFichadasApp(ctk.CTk, TkinterDnD.DnDWrapper):
             background=COLOR_ROW_WARN_BG,
             foreground=COLOR_ROW_WARN_FG,
         )
+        self.tree.bind("<Double-1>", self._on_tree_double_click)
 
     def _configurar_estilo_treeview(self) -> None:
         style = ttk.Style(self)
@@ -877,11 +883,15 @@ class ProcesadorFichadasApp(ctk.CTk, TkinterDnD.DnDWrapper):
                 )
 
     def _seleccionar_modo_filtro(self, modo: str) -> None:
+        if self._confirmar_edicion_activa_fn is not None:
+            self._confirmar_edicion_activa_fn()
         self._modo_filtro = modo
         self._actualizar_estilo_botones_filtro()
         self._aplicar_filtro_y_busqueda()
 
     def _aplicar_filtro_y_busqueda(self) -> None:
+        if self._confirmar_edicion_activa_fn is not None:
+            self._confirmar_edicion_activa_fn()
         if self.df_procesado_completo is None:
             return
 
@@ -895,6 +905,13 @@ class ProcesadorFichadasApp(ctk.CTk, TkinterDnD.DnDWrapper):
         self._actualizar_vista_previa(df_filtrado)
 
     def _actualizar_vista_previa(self, df_mostrar: pd.DataFrame) -> None:
+        if self._editor_celda is not None:
+            try:
+                self._editor_celda.destroy()
+            except Exception:
+                pass
+            self._editor_celda = None
+
         items_actuales = self.tree.get_children()
         if items_actuales:
             self.tree.delete(*items_actuales)
@@ -912,23 +929,229 @@ class ProcesadorFichadasApp(ctk.CTk, TkinterDnD.DnDWrapper):
                 tag = "warnrow"
             else:
                 tag = "evenrow" if idx % 2 == 1 else "oddrow"
-            self.tree.insert("", "end", values=tuple(fila), tags=(tag,))
+            self.tree.insert(
+                "", "end", iid=str(idx), values=tuple(fila), tags=(tag,)
+            )
 
         if total_vista > MAX_PREVIEW_ROWS:
-            prefijo_vista = f"Mostrando primeras {MAX_PREVIEW_ROWS} de {total_vista} filas en esta vista"
+            prefijo_vista = f"Mostrando primeras {MAX_PREVIEW_ROWS} de {total_vista} filas"
         else:
-            prefijo_vista = f"Mostrando {total_vista} filas en esta vista"
+            prefijo_vista = f"Mostrando {total_vista} filas"
 
         resumen_kpi = (
             f"{prefijo_vista}   |   "
             f"Días con fichaje: {stats['dias_con_fichadas']}   •   "
             f"Jornadas completas: {stats['jornadas_completas']}   •   "
             f"Sin salida: {stats['sin_salida']}   •   "
-            f"Empleados activos: {stats['empleados_activos']}"
+            f"✎ Doble clic en Ingreso o Salida para editar hora"
         )
         self.lbl_summary.configure(text=resumen_kpi)
 
+    def _formatear_entrada_hora_usuario(self, texto_raw: str) -> Optional[str]:
+        limpio = texto_raw.strip()
+        if not limpio:
+            return ""
+        # Permitir escribir "830" -> "08:30" o "1620" -> "16:20"
+        if limpio.isdigit():
+            if len(limpio) == 3:
+                limpio = f"0{limpio[0]}:{limpio[1:]}"
+            elif len(limpio) == 4:
+                limpio = f"{limpio[:2]}:{limpio[2:]}"
+            elif len(limpio) in (1, 2):
+                limpio = f"{int(limpio):02d}:00"
+        return normalizar_hora_hhmm(limpio)
+
+    def _on_tree_double_click(self, event) -> None:
+        if self.df_vista_actual is None or self.df_procesado_completo is None:
+            return
+
+        item_id = self.tree.identify_row(event.y)
+        col_id = self.tree.identify_column(event.x)
+        if not item_id:
+            return
+
+        valores_actuales = list(self.tree.item(item_id, "values"))
+        if len(valores_actuales) < 6:
+            return
+
+        # Si hace doble clic en Ingreso (#4) o Salida (#5) edita esa celda;
+        # si hace doble clic en otra columna de la fila, abre Ingreso (si está vacío) o Salida
+        if col_id in ("#4", "#5"):
+            col_target = col_id
+        else:
+            col_target = "#4" if not str(valores_actuales[3]).strip() else "#5"
+
+        self._abrir_editor_celda(item_id, col_target)
+
+    def _abrir_editor_celda(self, item_id: str, col_target: str) -> None:
+        if self._editor_celda is not None:
+            try:
+                self._editor_celda.destroy()
+            except Exception:
+                pass
+            self._editor_celda = None
+
+        bbox = self.tree.bbox(item_id, col_target)
+        if not bbox:
+            return
+
+        x, y, width, height = bbox
+        valores_actuales = list(self.tree.item(item_id, "values"))
+        col_idx = 3 if col_target == "#4" else 4
+        valor_inicial = str(valores_actuales[col_idx]).strip()
+        if valor_inicial == "Sin salida":
+            valor_inicial = ""
+
+        entry = tk.Entry(
+            self.tree,
+            font=(FONT_FAMILY, 10, "bold"),
+            justify="center",
+            bg="#EFF6FF",
+            fg="#0F172A",
+            insertbackground="#0F172A",
+            relief="solid",
+            bd=1,
+        )
+        entry.place(x=x, y=y, width=width, height=height)
+        entry.insert(0, valor_inicial)
+        entry.select_range(0, tk.END)
+        entry.focus_set()
+        self._editor_celda = entry
+
+        guardado = {"done": False}
+
+        def _confirmar_edicion(ir_a_siguiente: bool = False) -> None:
+            if guardado["done"]:
+                return
+            guardado["done"] = True
+            self._confirmar_edicion_activa_fn = None
+            nuevo_texto = entry.get()
+            try:
+                entry.destroy()
+            except Exception:
+                pass
+            if self._editor_celda is entry:
+                self._editor_celda = None
+
+            hora_norm = self._formatear_entrada_hora_usuario(nuevo_texto)
+            if hora_norm is None:
+                messagebox.showwarning(
+                    "Formato de hora inválido",
+                    f"La hora '{nuevo_texto}' no es válida.\n\n"
+                    "Ingrese la hora en formato HH:MM (por ejemplo 08:30 o 16:20).",
+                )
+                return
+
+            self._aplicar_cambio_hora_fila(item_id, col_idx, hora_norm)
+
+            if ir_a_siguiente and col_target == "#4":
+                self.after(20, lambda: self._abrir_editor_celda(item_id, "#5"))
+
+        def _cancelar_edicion(_ev=None) -> None:
+            if guardado["done"]:
+                return
+            guardado["done"] = True
+            self._confirmar_edicion_activa_fn = None
+            try:
+                entry.destroy()
+            except Exception:
+                pass
+            if self._editor_celda is entry:
+                self._editor_celda = None
+
+        self._confirmar_edicion_activa_fn = lambda: _confirmar_edicion(False)
+        entry.bind("<Return>", lambda _e: _confirmar_edicion(False))
+        entry.bind("<KP_Enter>", lambda _e: _confirmar_edicion(False))
+        entry.bind("<Tab>", lambda _e: (_confirmar_edicion(True), "break")[1])
+        entry.bind("<FocusOut>", lambda _e: _confirmar_edicion(False))
+        entry.bind("<Escape>", _cancelar_edicion)
+
+    def _aplicar_cambio_hora_fila(
+        self, item_id: str, col_idx: int, nueva_hora: str
+    ) -> None:
+        if self.df_vista_actual is None or self.df_procesado_completo is None:
+            return
+
+        valores = list(self.tree.item(item_id, "values"))
+        if len(valores) < 6:
+            return
+
+        nro_id, nombre, fecha = str(valores[0]), str(valores[1]), str(valores[2])
+        ingreso = str(valores[3]).strip()
+        salida = str(valores[4]).strip()
+
+        if col_idx == 3:
+            ingreso = nueva_hora
+        else:
+            salida = nueva_hora
+
+        # Recalcular Tiempo Transcurrido automáticamente
+        if ingreso and salida and salida != "Sin salida":
+            mins = calcular_minutos_trabajados(ingreso, salida)
+            tiempo_transcurrido = formatear_minutos_hhmm(mins)
+        elif ingreso and (not salida or salida == "Sin salida"):
+            salida = "Sin salida"
+            tiempo_transcurrido = ""
+        elif not ingreso and salida and salida != "Sin salida":
+            tiempo_transcurrido = ""
+        else:
+            ingreso = ""
+            salida = ""
+            tiempo_transcurrido = ""
+
+        nuevos_valores = (
+            nro_id,
+            nombre,
+            fecha,
+            ingreso,
+            salida,
+            tiempo_transcurrido,
+        )
+
+        idx_num = int(item_id) if item_id.isdigit() else 0
+        es_sin_salida = salida == "Sin salida" or (bool(ingreso) != bool(salida))
+        tag = "warnrow" if es_sin_salida else ("evenrow" if idx_num % 2 == 1 else "oddrow")
+        self.tree.item(item_id, values=nuevos_valores, tags=(tag,))
+
+        # Actualizar DataFrame de vista actual y DataFrame completo
+        if idx_num < len(self.df_vista_actual):
+            self.df_vista_actual.loc[
+                idx_num, ["Ingreso", "Salida", "Tiempo Transcurrido"]
+            ] = [ingreso, salida, tiempo_transcurrido]
+
+        mask = (
+            (self.df_procesado_completo["Nro. ID"].astype(str) == nro_id)
+            & (self.df_procesado_completo["Nombre"].astype(str) == nombre)
+            & (self.df_procesado_completo["Fecha"].astype(str) == fecha)
+        )
+        if mask.any():
+            self.df_procesado_completo.loc[
+                mask, ["Ingreso", "Salida", "Tiempo Transcurrido"]
+            ] = [ingreso, salida, tiempo_transcurrido]
+
+        self.estadisticas_actuales = obtener_estadisticas_df(
+            self.df_procesado_completo
+        )
+        stats = self.estadisticas_actuales
+        total_vista = len(self.df_vista_actual)
+        resumen_kpi = (
+            f"Mostrando {min(total_vista, MAX_PREVIEW_ROWS)} filas   |   "
+            f"Días con fichaje: {stats['dias_con_fichadas']}   •   "
+            f"Jornadas completas: {stats['jornadas_completas']}   •   "
+            f"Sin salida: {stats['sin_salida']}   •   "
+            f"✎ Doble clic en Ingreso o Salida para editar hora"
+        )
+        self.lbl_summary.configure(text=resumen_kpi)
+        self.lbl_file_status.configure(
+            text=(
+                f"✓ Cargado y procesado con éxito • {stats['dias_con_fichadas']} días con fichadas reales "
+                f"({stats['empleados_activos']} empleados activos de {stats['empleados_totales']} legajos en archivo)"
+            )
+        )
+
     def _accion_guardar_reporte(self) -> None:
+        if self._confirmar_edicion_activa_fn is not None:
+            self._confirmar_edicion_activa_fn()
         if self._procesando:
             return
 
