@@ -2,7 +2,7 @@
 # CONFIGURACIÓN DE VERSIÓN, ACTUALIZACIONES OTA Y PALETA CORPORATIVA
 # ==============================================================================
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 GITHUB_REPO = "Vanessaalberti/ProcesadorFichadas"
 
 # Paleta corporativa exacta (Modo Claro)
@@ -47,7 +47,7 @@ COLOR_WARNING = "#F59E0B"
 COLOR_ERROR = "#EF4444"
 
 FONT_FAMILY = "Segoe UI"
-MAX_PREVIEW_ROWS = 500
+MAX_PREVIEW_ROWS = 50000
 
 OUTPUT_COLUMNS = [
     "Nro. ID",

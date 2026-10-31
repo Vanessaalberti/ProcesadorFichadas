@@ -114,11 +114,11 @@ def exportar_excel_profesional(
     df_completo_original: Optional[pd.DataFrame] = None,
 ) -> Dict[str, int]:
     """
-    Exporta siempre un libro de Excel gerencial con las 3 hojas estructuradas:
-    - Hoja 1 ('Fichadas Procesadas'): Únicamente los días con fichaje real (sin días vacíos).
-    - Hoja 2 ('Resumen por Empleado'): Totalizador de días trabajados, horas acumuladas y alertas por persona.
-    - Hoja 3 ('Planilla Mensual Activos'): Todos los días del mes de los empleados activos (incluyendo días sin fichar).
-    Retorna un diccionario con la cantidad de filas exportadas en cada hoja.
+    Exporta siempre un libro de Excel con el 100% de los datos traducidos sin descartar ningún registro:
+    - Hoja 1 ('Fichadas Procesadas'): El 100% de los registros del archivo original en su mismo orden
+      (incluyendo todos los legajos tengan o no fichadas, para que RRHH filtre libremente en Excel).
+    - Hoja 2 ('Resumen por Empleado'): Totalizador de días trabajados y horas de todos los legajos del archivo.
+    - Hoja 3 ('Solo Días con Fichaje'): Vista filtrada únicamente con las filas que registraron fichadas.
     """
     wb = openpyxl.Workbook()
 
@@ -126,27 +126,26 @@ def exportar_excel_profesional(
         df_completo_original if df_completo_original is not None else df_limpio
     )
 
-    # Preparar los 3 datasets consistentes
+    df_todos_original = filtrar_dataframe_según_modo(
+        base_completa, modo="todos"
+    )
+    df_resumen = generar_resumen_por_empleado(base_completa)
     df_solo_fichadas = filtrar_dataframe_según_modo(
         base_completa, modo="con_fichadas"
     )
-    df_resumen = generar_resumen_por_empleado(base_completa)
-    df_mes_activos = filtrar_dataframe_según_modo(
-        base_completa, modo="empleados_activos"
-    )
 
-    # Hoja 1: Fichadas Procesadas (Días con fichaje real)
+    # Hoja 1: Fichadas Procesadas (100% de los registros del archivo original sin ocultar ninguno)
     ws_principal = wb.active
     ws_principal.title = "Fichadas Procesadas"
     _estilizar_hoja_excel(
         ws=ws_principal,
-        df_datos=df_solo_fichadas,
+        df_datos=df_todos_original,
         columnas=OUTPUT_COLUMNS,
         columnas_centradas={1, 3, 4, 5, 6},
         col_alerta_idx=5,
     )
 
-    # Hoja 2: Resumen por Empleado
+    # Hoja 2: Resumen por Empleado (100% de los legajos del archivo)
     ws_resumen = wb.create_sheet(title="Resumen por Empleado")
     _estilizar_hoja_excel(
         ws=ws_resumen,
@@ -156,11 +155,11 @@ def exportar_excel_profesional(
         col_alerta_idx=None,
     )
 
-    # Hoja 3: Planilla Mensual Activos (Mes completo de personal activo)
-    ws_activos = wb.create_sheet(title="Planilla Mensual Activos")
+    # Hoja 3: Solo Días con Fichaje (Vista rápida auxiliar de días fichados)
+    ws_fichadas = wb.create_sheet(title="Solo Días con Fichaje")
     _estilizar_hoja_excel(
-        ws=ws_activos,
-        df_datos=df_mes_activos,
+        ws=ws_fichadas,
+        df_datos=df_solo_fichadas,
         columnas=OUTPUT_COLUMNS,
         columnas_centradas={1, 3, 4, 5, 6},
         col_alerta_idx=5,
@@ -169,7 +168,7 @@ def exportar_excel_profesional(
     wb.save(ruta_destino)
 
     return {
-        "hoja_1_fichadas": len(df_solo_fichadas),
+        "hoja_1_fichadas": len(df_todos_original),
         "hoja_2_resumen": len(df_resumen),
-        "hoja_3_mensual": len(df_mes_activos),
+        "hoja_3_mensual": len(df_solo_fichadas),
     }

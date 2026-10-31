@@ -91,7 +91,7 @@ class ProcesadorFichadasApp(ctk.CTk, TkinterDnD.DnDWrapper):
         self.df_vista_actual: Optional[pd.DataFrame] = None
         self.estadisticas_actuales: Dict[str, int] = obtener_estadisticas_df(None)
         self._procesando: bool = False
-        self._modo_filtro: str = "con_fichadas"
+        self._modo_filtro: str = "todos"
 
         self._construir_ui()
         self._configurar_estilo_treeview()
@@ -341,9 +341,9 @@ class ProcesadorFichadasApp(ctk.CTk, TkinterDnD.DnDWrapper):
 
         self._botones_filtro: Dict[str, ctk.CTkButton] = {}
         opciones_filtro = [
+            ("todos", "Todos los registros"),
             ("con_fichadas", "Solo días con fichadas"),
             ("empleados_activos", "Empleados activos (mes)"),
-            ("todos", "Todos los registros"),
         ]
         for idx_f, (clave_modo, etiqueta_modo) in enumerate(opciones_filtro):
             btn_f = ctk.CTkButton(
@@ -996,11 +996,11 @@ class ProcesadorFichadasApp(ctk.CTk, TkinterDnD.DnDWrapper):
         c3 = conteos.get("hoja_3_mensual", 0)
         messagebox.showinfo(
             "Reporte Excel Generado con Éxito",
-            f"El reporte organizado se ha guardado correctamente con sus 3 hojas:\n\n"
+            f"El reporte organizado se ha guardado correctamente con todos los registros:\n\n"
             f"• Archivo: {os.path.basename(ruta_destino)}\n"
-            f"• Hoja 1 (Fichadas Procesadas): {c1} días con fichaje real\n"
-            f"• Hoja 2 (Resumen por Empleado): {c2} empleados activos totalizados\n"
-            f"• Hoja 3 (Planilla Mensual Activos): {c3} registros (mes completo de activos)\n\n"
+            f"• Hoja 1 (Fichadas Procesadas): {c1} registros completos (100% del archivo original)\n"
+            f"• Hoja 2 (Resumen por Empleado): {c2} legajos totales\n"
+            f"• Hoja 3 (Solo Días con Fichaje): {c3} días con fichaje registrado\n\n"
             f"Ubicación:\n{ruta_destino}",
         )
 

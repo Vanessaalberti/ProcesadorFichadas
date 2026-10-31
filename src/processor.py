@@ -311,10 +311,10 @@ def filtrar_dataframe_según_modo(
     df_limpio: pd.DataFrame, modo: str, texto_busqueda: str = ""
 ) -> pd.DataFrame:
     """
-    Filtra y organiza el DataFrame procesado según el modo seleccionado:
+    Filtra el DataFrame procesado según el modo seleccionado sin alterar el orden original del archivo:
+    - "todos": El 100% de las filas en el orden exacto original del archivo exportado por Leal Sistemas.
     - "con_fichadas": Solo filas donde el empleado fichó (Ingreso != "").
-    - "empleados_activos": Todos los días del mes pero solo de empleados que tienen >=1 fichada en el periodo.
-    - "todos": El 100% de las filas (ordenando primero los empleados activos para evitar ver filas vacías arriba).
+    - "empleados_activos": Todos los días del mes de empleados que tienen >=1 fichada en el periodo.
     """
     if df_limpio is None or df_limpio.empty:
         return pd.DataFrame(columns=OUTPUT_COLUMNS)
@@ -323,7 +323,6 @@ def filtrar_dataframe_según_modo(
 
     if modo == "con_fichadas":
         resultado = df_limpio[tiene_fichada].copy()
-        # Si el archivo de prueba solo tenía filas vacías, mostrar todas
         if resultado.empty:
             resultado = df_limpio.copy()
     elif modo == "empleados_activos":
@@ -333,14 +332,8 @@ def filtrar_dataframe_según_modo(
         else:
             resultado = df_limpio.copy()
     else:
-        # Modo "todos": ponemos primero a los empleados activos para que la tabla nunca arranque vacía
-        ids_activos = set(df_limpio.loc[tiene_fichada, "Nro. ID"].unique())
-        if ids_activos:
-            df_activos = df_limpio[df_limpio["Nro. ID"].isin(ids_activos)]
-            df_inactivos = df_limpio[~df_limpio["Nro. ID"].isin(ids_activos)]
-            resultado = pd.concat([df_activos, df_inactivos], ignore_index=True)
-        else:
-            resultado = df_limpio.copy()
+        # Modo "todos" (por defecto): respeta el 100% de los registros y el orden exacto original
+        resultado = df_limpio.copy()
 
     busqueda = texto_busqueda.strip().lower()
     if busqueda:
@@ -354,27 +347,25 @@ def filtrar_dataframe_según_modo(
 
 def generar_resumen_por_empleado(df_limpio: pd.DataFrame) -> pd.DataFrame:
     """
-    Genera una tabla gerencial de resumen por empleado activo con totales de días fichados,
-    jornadas completas, días sin salida y suma total de horas trabajadas.
+    Genera una tabla de resumen incluyendo el 100% de los legajos presentes en el archivo original
+    en su mismo orden, con totales de días fichados, jornadas completas, días sin salida y horas.
     """
     if df_limpio is None or df_limpio.empty:
         return pd.DataFrame(columns=SUMMARY_COLUMNS)
 
-    tiene_fichada = df_limpio["Ingreso"].astype(str).str.strip() != ""
-    df_activos = df_limpio[tiene_fichada]
-    if df_activos.empty:
-        return pd.DataFrame(columns=SUMMARY_COLUMNS)
-
     filas_resumen = []
-    for (nro_id, nombre), grupo in df_activos.groupby(
+    for (nro_id, nombre), grupo in df_limpio.groupby(
         ["Nro. ID", "Nombre"], sort=False
     ):
-        dias_fichados = len(grupo)
-        sin_salida = int((grupo["Salida"] == "Sin salida").sum())
-        jornadas_completas = dias_fichados - sin_salida
+        tiene_fichada_grupo = grupo["Ingreso"].astype(str).str.strip() != ""
+        grupo_fichado = grupo[tiene_fichada_grupo]
+
+        dias_fichados = len(grupo_fichado)
+        sin_salida = int((grupo_fichado["Salida"] == "Sin salida").sum())
+        jornadas_completas = max(0, dias_fichados - sin_salida)
 
         minutos_totales = 0
-        for _, row in grupo.iterrows():
+        for _, row in grupo_fichado.iterrows():
             t_str = str(row["Tiempo Transcurrido"]).strip()
             if ":" in t_str:
                 partes = t_str.split(":")
