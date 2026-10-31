@@ -5,6 +5,7 @@ import re
 import subprocess
 import sys
 import threading
+import time
 import tkinter as tk
 from tkinter import messagebox
 from typing import Dict, List, Optional, Tuple
@@ -102,7 +103,10 @@ def _aplicar_actualizacion_incremental(
                     "La aplicación se reiniciará ahora para aplicar los cambios.",
                 )
                 if getattr(sys, "frozen", False):
-                    subprocess.Popen([sys.executable])
+                    env_clean = os.environ.copy()
+                    env_clean.pop("_MEIPASS2", None)
+                    env_clean["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+                    subprocess.Popen([sys.executable], env=env_clean)
                 else:
                     subprocess.Popen([sys.executable] + sys.argv)
                 app_root.destroy()
@@ -127,10 +131,19 @@ def _verificar_parche_incremental_github(
     Consulta la rama principal (main/master) en GitHub y compara cada archivo de src/
     contra la copia local. Devuelve solo los archivos que realmente cambiaron.
     """
+    ts = int(time.time())
+    headers_nocache = {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+    }
     for branch in ("main", "master"):
         raw_base = f"https://raw.githubusercontent.com/{GITHUB_REPO}/{branch}"
         try:
-            resp_cfg = requests.get(f"{raw_base}/src/config.py", timeout=5)
+            resp_cfg = requests.get(
+                f"{raw_base}/src/config.py?t={ts}",
+                headers=headers_nocache,
+                timeout=5,
+            )
             if resp_cfg.status_code != 200:
                 continue
 
@@ -152,7 +165,11 @@ def _verificar_parche_incremental_github(
             archivos_cambiados: Dict[str, bytes] = {}
 
             for rel_path in MODULOS_ACTUALIZABLES:
-                resp_mod = requests.get(f"{raw_base}/{rel_path}", timeout=5)
+                resp_mod = requests.get(
+                    f"{raw_base}/{rel_path}?t={ts}",
+                    headers=headers_nocache,
+                    timeout=5,
+                )
                 if resp_mod.status_code != 200:
                     continue
 

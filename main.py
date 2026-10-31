@@ -45,6 +45,7 @@ def _aplicar_modulos_incrementales() -> None:
         ruta_py = os.path.join(patch_src_dir, f"{nombre_mod}.py")
         if os.path.isfile(ruta_py):
             fullname = f"src.{nombre_mod}"
+            modulo_previo = sys.modules.get(fullname)
             try:
                 spec = importlib.util.spec_from_file_location(fullname, ruta_py)
                 if spec and spec.loader:
@@ -53,6 +54,10 @@ def _aplicar_modulos_incrementales() -> None:
                     spec.loader.exec_module(modulo)
                     setattr(paquete_src, nombre_mod, modulo)
             except Exception:
+                if modulo_previo is not None:
+                    sys.modules[fullname] = modulo_previo
+                else:
+                    sys.modules.pop(fullname, None)
                 continue
 
 

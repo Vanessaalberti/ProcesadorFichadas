@@ -2,7 +2,7 @@
 # CONFIGURACIÓN DE VERSIÓN, ACTUALIZACIONES OTA Y PALETA CORPORATIVA
 # ==============================================================================
 
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.2.1"
 GITHUB_REPO = "Vanessaalberti/ProcesadorFichadas"
 
 # Paleta corporativa exacta (Modo Claro)
