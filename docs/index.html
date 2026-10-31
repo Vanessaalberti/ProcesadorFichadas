@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Procesador de Fichadas — Leal Sistemas | Distribución Interna</title>
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --navy-solid: #112239;
+      --accent: #2563EB;
+      --accent-dark: #1D4ED8;
+      --sky: #38BDF8;
+      --emerald: #10B981;
+      --emerald-bright: #34D399;
+      --text-primary: #0F172A;
+      --text-secondary: #475569;
+      --text-muted: #64748B;
+      --border-light: #E2E8F0;
+      --border-strong: #CBD5E1;
+      --font-sans: "Inter", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: "JetBrains Mono", Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: #F1F5F9;
+      color: var(--text-primary);
+      font-size: 14.5px;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    code, .mono {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    /* =========================================================================
+       1. FLUID FULL-BLEED CONTAINER (100% WIDTH UP TO 1680px + 4vw PADDING)
+       ========================================================================= */
+    .fluid-container {
+      width: 100%;
+      max-width: 1680px;
+      margin: 0 auto;
+      padding: 0 4vw;
+    }
+
+    /* =========================================================================
+       CAPA 1: DARK STAGE INMERSIVO (HEADER + HERO SECTION FULL-BLEED)
+       ========================================================================= */
+    .dark-stage-wrapper {
+      width: 100%;
+      background-color: #050811;
+      background-image:
+        linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        radial-gradient(circle at 75% 50%, #1E3A8A 0%, #09111E 55%, #050811 100%);
+      background-size: 32px 32px, 32px 32px, 100% 100%;
+      color: #FFFFFF;
+      border-bottom: 1px solid #1E293B;
+    }
+
+    /* Topbar Institucional */
+    .topbar {
+      width: 100%;
+      height: 64px;
+      background-color: rgba(5, 8, 17, 0.65);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .topbar-inner {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: block;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15);
+    }
+
+    .brand-name {
+      font-size: 15.5px;
+      font-weight: 700;
+      color: #FFFFFF;
+      letter-spacing: -0.01em;
+    }
+
+    .brand-badge {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #CBD5E1;
+      background-color: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      padding: 2px 9px;
+      border-radius: 5px;
+    }
+
+    .topbar-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: #94A3B8;
+    }
+
+    .topbar-status svg {
+      width: 16px;
+      height: 16px;
+      color: var(--sky);
+      flex-shrink: 0;
+    }
+
+    /* Hero Section Full-Bleed */
+    .hero-section {
+      width: 100%;
+      padding: 52px 0 64px;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 5fr 7fr;
+      gap: 4vw;
+      align-items: center;
+    }
+
+    .hero-left {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .version-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: var(--emerald-bright);
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 5px 13px;
+      border-radius: 999px;
+      margin-bottom: 18px;
+    }
+
+    .version-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: var(--emerald-bright);
+      box-shadow: 0 0 8px var(--emerald-bright);
+    }
+
+    .hero-title {
+      font-size: clamp(32px, 3vw, 46px);
+      font-weight: 800;
+      color: #FFFFFF;
+      letter-spacing: -0.025em;
+      line-height: 1.12;
+      margin-bottom: 16px;
+    }
+
+    .hero-description {
+      font-size: 16px;
+      color: #94A3B8;
+      line-height: 1.6;
+      margin-bottom: 28px;
+    }
+
+    /* Bloque CTA Principal Luminoso + Metadatos */
+    .cta-group {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .cta-action-row {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .btn-download {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 11px;
+      height: 52px;
+      padding: 0 26px;
+      background: linear-gradient(180deg, #2563EB 0%, #1D4ED8 100%);
+      color: #FFFFFF;
+      text-decoration: none;
+      font-size: 15.5px;
+      font-weight: 700;
+      border-radius: 9px;
+      border: 1px solid #1E40AF;
+      border-top: 1px solid rgba(255, 255, 255, 0.25);
+      box-shadow: 0 8px 25px -4px rgba(37, 99, 235, 0.5);
+      transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.15s ease;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .btn-download:hover {
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+      box-shadow: 0 12px 30px -4px rgba(37, 99, 235, 0.65);
+    }
+
+    .btn-download svg {
+      width: 19px;
+      height: 19px;
+      flex-shrink: 0;
+    }
+
+    .cta-meta-inline {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      font-size: 12.5px;
+      color: #94A3B8;
+    }
+
+    .cta-meta-inline #lbl-size {
+      font-weight: 600;
+      color: #E2E8F0;
+    }
+
+    .cta-meta-tag {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: #94A3B8;
+    }
+
+    /* Callout de SmartScreen en Cristal Oscuro */
+    .smartscreen-note {
+      width: 100%;
+      background: rgba(30, 41, 59, 0.6);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-left: 3px solid var(--sky);
+      border-radius: 8px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 11px;
+      font-size: 13px;
+      color: #E2E8F0;
+      line-height: 1.5;
+    }
+
+    .smartscreen-note svg {
+      width: 17px;
+      height: 17px;
+      color: var(--sky);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .smartscreen-note strong {
+      color: #FFFFFF;
+      font-weight: 600;
+    }
+
+    /* Grilla 2x2 de Especificaciones sobre Fondo Oscuro */
+    .specs-dark-grid {
+      width: 100%;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 22px;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      row-gap: 16px;
+      column-gap: 24px;
+    }
+
+    .spec-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 11px;
+      min-width: 0;
+    }
+
+    .spec-item svg {
+      width: 18px;
+      height: 18px;
+      color: var(--sky);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .spec-text {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      line-height: 1.35;
+    }
+
+    .spec-label {
+      font-size: 11.5px;
+      color: #64748B;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .spec-value {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #F8FAFC;
+      margin-top: 2px;
+    }
+
+    .spec-value code {
+      background-color: rgba(255, 255, 255, 0.1);
+      color: #38BDF8;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+    }
+
+    /* Columna Derecha del Hero: La Captura en Contraste 3D */
+    .hero-right {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .hero-right img {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: 10px;
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.15),
+        0 30px 60px -12px rgba(0, 0, 0, 0.65);
+    }
+
+    /* =========================================================================
+       ENCABEZADOS DE SECCIÓN CON MARCADOR LATERAL AZUL
+       ========================================================================= */
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 28px;
+      border-left: 4px solid var(--accent);
+      padding-left: 12px;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.015em;
+      line-height: 1.2;
+    }
+
+    .section-subtitle {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .section-subtitle code {
+      background-color: #E2E8F0;
+      color: var(--navy-solid);
+    }
+
+    /* =========================================================================
+       CAPA 2: BANDA DE FLUJO OPERATIVO (#FFFFFF PURO CON BORDE ESTRUCTURAL)
+       ========================================================================= */
+    .workflow-section {
+      width: 100%;
+      background-color: #FFFFFF;
+      border-bottom: 1px solid var(--border-light);
+      padding: 48px 0;
+    }
+
+    .workflow-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+    }
+
+    .workflow-card {
+      background-color: #F8FAFC;
+      border: 1px solid var(--border-light);
+      border-radius: 12px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .workflow-card:hover {
+      border-color: var(--border-strong);
+      box-shadow: 0 6px 16px -4px rgba(15, 23, 42, 0.05);
+    }
+
+    .workflow-step-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .step-badge-sq {
+      width: 32px;
+      height: 32px;
+      border-radius: 7px;
+      background-color: var(--navy-solid);
+      color: #FFFFFF;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .step-connector-bar {
+      flex: 1;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent) 0%, #E2E8F0 100%);
+      border-radius: 2px;
+    }
+
+    .workflow-card:last-child .step-connector-bar {
+      background: linear-gradient(90deg, var(--emerald) 0%, #E2E8F0 100%);
+    }
+
+    .workflow-step-title {
+      font-size: 15.5px;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1.3;
+    }
+
+    .workflow-step-desc {
+      font-size: 13.5px;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+
+    .workflow-step-desc code {
+      background-color: #FFFFFF;
+      color: var(--navy-solid);
+      border: 1px solid var(--border-light);
+    }
+
+    /* =========================================================================
+       CAPA 3: SECCIÓN DE ARQUITECTURA EXCEL SOBRE GRIS PIZARRA (#F1F5F9)
+       ========================================================================= */
+    .architecture-section {
+      width: 100%;
+      background-color: #F1F5F9;
+      padding: 56px 0;
+      border-bottom: 1px solid var(--border-light);
+    }
+
+    .architecture-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+    }
+
+    .sheet-card {
+      background-color: #FFFFFF;
+      border: 1px solid var(--border-strong);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow:
+        0 4px 6px -1px rgba(15, 23, 42, 0.05),
+        0 2px 4px -2px rgba(15, 23, 42, 0.05);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .sheet-card:hover {
+      transform: translateY(-2px);
+      box-shadow:
+        0 12px 24px -6px rgba(15, 23, 42, 0.08),
+        0 4px 8px -4px rgba(15, 23, 42, 0.04);
+    }
+
+    .sheet-card-header {
+      background-color: #F8FAFC;
+      border-bottom: 1px solid var(--border-light);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .sheet-title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .sheet-title-group svg {
+      width: 19px;
+      height: 19px;
+      color: var(--emerald);
+      flex-shrink: 0;
+    }
+
+    .sheet-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .sheet-tab-badge {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--navy-solid);
+      background-color: #E2E8F0;
+      padding: 3px 9px;
+      border-radius: 5px;
+    }
+
+    .sheet-card-body {
+      padding: 22px 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      flex: 1;
+      gap: 18px;
+    }
+
+    .sheet-desc {
+      font-size: 13.8px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .sheet-keypoints {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding-top: 14px;
+      border-top: 1px solid #F1F5F9;
+    }
+
+    .sheet-keypoints li {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 13px;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .sheet-keypoints li code {
+      background-color: #F1F5F9;
+      color: var(--navy-solid);
+      border: 1px solid var(--border-light);
+    }
+
+    .bullet-dot {
+      color: var(--emerald);
+      font-weight: 800;
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    .bullet-dot.amber {
+      color: #D97706;
+    }
+
+    /* =========================================================================
+       FOOTER FULL-BLEED
+       ========================================================================= */
+    .footer-section {
+      width: 100%;
+      background-color: #FFFFFF;
+      padding: 22px 0;
+    }
+
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 12.5px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* =========================================================================
+       3. RESPONSIVE BREAKPOINTS
+       ========================================================================= */
+    @media (max-width: 1024px) {
+      .hero-grid {
+        grid-template-columns: 1fr;
+        gap: 36px;
+      }
+
+      .workflow-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .architecture-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .fluid-container {
+        padding: 0 20px;
+      }
+
+      .topbar-status span {
+        display: none;
+      }
+
+      .hero-section {
+        padding: 32px 0 44px;
+      }
+
+      .btn-download {
+        width: 100%;
+      }
+
+      .specs-dark-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .workflow-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+      }
+
+      .footer-inner {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- =========================================================================
+       CAPA 1: DARK STAGE INMERSIVO (HEADER + HERO SECTION FULL-BLEED)
+       ========================================================================= -->
+  <div class="dark-stage-wrapper">
+
+    <!-- Header Institucional -->
+    <header class="topbar">
+      <div class="fluid-container topbar-inner">
+        <div class="brand-group">
+          <img class="brand-logo" src="logo.png" alt="Logo Procesador de Fichadas" />
+          <span class="brand-name">Procesador de Fichadas</span>
+          <span class="brand-badge">Leal Sistemas</span>
+        </div>
+        <div class="topbar-status">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+            <line x1="8" y1="21" x2="16" y2="21"></line>
+            <line x1="12" y1="17" x2="12" y2="21"></line>
+          </svg>
+          <span>Distribución Interna RRHH • Windows x64</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Hero Section en Split-Screen Asimétrico (5fr / 7fr) -->
+    <section class="hero-section">
+      <div class="fluid-container hero-grid">
+
+        <!-- Columna Izquierda: Propuesta de Valor, CTA Luminoso y Especificaciones -->
+        <div class="hero-left">
+          <div class="version-pill">
+            <span class="version-dot"></span>
+            <span>Versión estable v<span id="lbl-version">1.1.0</span> • Portable</span>
+          </div>
+
+          <h1 class="hero-title">Procesador de Fichadas para Windows</h1>
+          <p class="hero-description">
+            Herramienta de escritorio para Recursos Humanos que normaliza los reportes crudos del reloj biométrico
+            Leal Sistemas, filtra legajos inactivos, detecta omisiones de salida y genera el libro Excel gerencial.
+          </p>
+
+          <!-- Bloque Cohesivo CTA + Metadatos + Callout SmartScreen -->
+          <div class="cta-group">
+            <div class="cta-action-row">
+              <a id="btn-download-exe" href="#" class="btn-download">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span>Descargar ProcesadorFichadas.exe</span>
+              </a>
+              <div class="cta-meta-inline">
+                <span id="lbl-size">Archivo único ejecutable (~50 MB)</span>
+                <span class="cta-meta-tag">SHA-256 Verificado • Windows x64</span>
+              </div>
+            </div>
+
+            <div class="smartscreen-note">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <div>
+                <strong>Primer inicio en Windows:</strong> Si aparece el aviso preventivo de SmartScreen, seleccione <strong>Más información</strong> → <strong>Ejecutar de todas formas</strong>.
+              </div>
+            </div>
+          </div>
+
+          <!-- Grilla 2x2 de Especificaciones sobre Fondo Oscuro -->
+          <div class="specs-dark-grid">
+            <div class="spec-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+                <path d="M8 21h8"></path>
+                <path d="M12 17v4"></path>
+              </svg>
+              <div class="spec-text">
+                <span class="spec-label">Plataforma</span>
+                <span class="spec-value">Windows 10 / 11 (64-bit)</span>
+              </div>
+            </div>
+
+            <div class="spec-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+              </svg>
+              <div class="spec-text">
+                <span class="spec-label">Formato</span>
+                <span class="spec-value">Portable <code>.exe</code> sin instalación</span>
+              </div>
+            </div>
+
+            <div class="spec-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+              </svg>
+              <div class="spec-text">
+                <span class="spec-label">Entrada Soportada</span>
+                <span class="spec-value">Reportes <code>.xls</code> y <code>.csv</code> crudos</span>
+              </div>
+            </div>
+
+            <div class="spec-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              <div class="spec-text">
+                <span class="spec-label">Actualizaciones</span>
+                <span class="spec-value">OTA Automáticas</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Columna Derecha: Captura Real del Programa sobre Escenario Oscuro -->
+        <div class="hero-right">
+          <img src="captura_programa.png" alt="Interfaz real de Procesador de Fichadas procesando un reporte mensual" />
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+
+  <!-- =========================================================================
+       CAPA 2: BANDA DE FLUJO OPERATIVO (#FFFFFF PURO CON BORDE ESTRUCTURAL)
+       ========================================================================= -->
+  <section class="workflow-section">
+    <div class="fluid-container">
+      <div class="section-header">
+        <h2 class="section-title">Flujo Operativo en 4 Pasos</h2>
+        <span class="section-subtitle">Ejecución directa sin dependencias ni configuración local</span>
+      </div>
+
+      <div class="workflow-grid">
+        <article class="workflow-card">
+          <div class="workflow-step-top">
+            <span class="step-badge-sq">01</span>
+            <div class="step-connector-bar"></div>
+          </div>
+          <h3 class="workflow-step-title">Descargar portable</h3>
+          <p class="workflow-step-desc">
+            Guarde <code>ProcesadorFichadas.exe</code> en el Escritorio o carpeta de trabajo y ábralo con doble clic sin permisos de administrador.
+          </p>
+        </article>
+
+        <article class="workflow-card">
+          <div class="workflow-step-top">
+            <span class="step-badge-sq">02</span>
+            <div class="step-connector-bar"></div>
+          </div>
+          <h3 class="workflow-step-title">Cargar .xls de Leal</h3>
+          <p class="workflow-step-desc">
+            Arrastre el reporte mensual (ej. <code>Reporte_Biometrico_Octubre.xls</code>) directamente al recuadro superior o selecciónelo desde el explorador.
+          </p>
+        </article>
+
+        <article class="workflow-card">
+          <div class="workflow-step-top">
+            <span class="step-badge-sq">03</span>
+            <div class="step-connector-bar"></div>
+          </div>
+          <h3 class="workflow-step-title">Filtrar y auditar en vivo</h3>
+          <p class="workflow-step-desc">
+            Inspeccione las fichadas limpias en pantalla, alterne entre vistas de activos o filtre al instante por legajo o apellido.
+          </p>
+        </article>
+
+        <article class="workflow-card">
+          <div class="workflow-step-top">
+            <span class="step-badge-sq">04</span>
+            <div class="step-connector-bar"></div>
+          </div>
+          <h3 class="workflow-step-title">Exportar reporte .xlsx</h3>
+          <p class="workflow-step-desc">
+            Genere el libro Excel final con encabezados inmovilizados, autofiltros activados y las 3 pestañas gerenciales listas.
+          </p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       CAPA 3: SECCIÓN DE ARQUITECTURA EXCEL SOBRE GRIS PIZARRA (#F1F5F9)
+       ========================================================================= -->
+  <section class="architecture-section">
+    <div class="fluid-container">
+      <div class="section-header">
+        <h2 class="section-title">Arquitectura del Reporte Excel Exportado</h2>
+        <span class="section-subtitle">Cada exportación genera automáticamente 3 hojas estructuradas en el mismo libro <code>.xlsx</code></span>
+      </div>
+
+      <div class="architecture-grid">
+        <article class="sheet-card">
+          <div class="sheet-card-header">
+            <div class="sheet-title-group">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="3" y1="9" x2="21" y2="9"></line>
+                <line x1="9" y1="21" x2="9" y2="9"></line>
+              </svg>
+              <h3 class="sheet-name">Fichadas Procesadas</h3>
+            </div>
+            <span class="sheet-tab-badge">Hoja 1</span>
+          </div>
+          <div class="sheet-card-body">
+            <p class="sheet-desc">
+              Contiene exclusivamente los días con fichaje real depurando marcas repetidas, calculando la jornada neta e identificando omisiones de salida.
+            </p>
+            <ul class="sheet-keypoints">
+              <li><span class="bullet-dot">•</span>Cálculo exacto de jornada neta en formato <code>HH:MM</code></li>
+              <li><span class="bullet-dot amber">•</span>Resaltado automático de alertas <strong>Sin salida</strong></li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="sheet-card">
+          <div class="sheet-card-header">
+            <div class="sheet-title-group">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="3" y1="9" x2="21" y2="9"></line>
+                <line x1="9" y1="21" x2="9" y2="9"></line>
+              </svg>
+              <h3 class="sheet-name">Resumen por Empleado</h3>
+            </div>
+            <span class="sheet-tab-badge">Hoja 2</span>
+          </div>
+          <div class="sheet-card-body">
+            <p class="sheet-desc">
+              Tablero consolidado por cada empleado activo con la sumatoria mensual de días asistidos, jornadas completas, días incompletos y total de horas.
+            </p>
+            <ul class="sheet-keypoints">
+              <li><span class="bullet-dot">•</span>Sumatoria acumulada de horas mensuales y promedio diario</li>
+              <li><span class="bullet-dot">•</span>Conteo desglosado de días completos vs. marcas sin salida</li>
+            </ul>
+          </div>
+        </article>
+
+        <article class="sheet-card">
+          <div class="sheet-card-header">
+            <div class="sheet-title-group">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="3" y1="9" x2="21" y2="9"></line>
+                <line x1="9" y1="21" x2="9" y2="9"></line>
+              </svg>
+              <h3 class="sheet-name">Planilla Mensual Activos</h3>
+            </div>
+            <span class="sheet-tab-badge">Hoja 3</span>
+          </div>
+          <div class="sheet-card-body">
+            <p class="sheet-desc">
+              Calendario completo del período para el personal en actividad (incluyendo francos e inasistencias), descartando legajos dados de baja.
+            </p>
+            <ul class="sheet-keypoints">
+              <li><span class="bullet-dot">•</span>Secuencia cronológica completa del mes por empleado activo</li>
+              <li><span class="bullet-dot">•</span>Exclusión automática de padrón histórico sin actividad</li>
+            </ul>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- =========================================================================
+       FOOTER INSTITUCIONAL FULL-BLEED
+       ========================================================================= -->
+  <footer class="footer-section">
+    <div class="fluid-container footer-inner">
+      <span>Procesador de Fichadas — Leal Sistemas</span>
+      <span>Portal de Distribución Interna • Recursos Humanos</span>
+    </div>
+  </footer>
+
+  <script>
+    let GITHUB_REPO = "TU_USUARIO/TU_REPO";
+
+    if (window.location.hostname.endsWith("github.io")) {
+      const user = window.location.hostname.split(".")[0];
+      const pathParts = window.location.pathname.split("/").filter(Boolean);
+      if (user && pathParts.length > 0) {
+        GITHUB_REPO = `${user}/${pathParts[0]}`;
+      }
+    }
+
+    const btnDownload = document.getElementById("btn-download-exe");
+    const lblVersion = document.getElementById("lbl-version");
+    const lblSize = document.getElementById("lbl-size");
+
+    if (GITHUB_REPO !== "TU_USUARIO/TU_REPO") {
+      btnDownload.href = `https://github.com/${GITHUB_REPO}/releases/latest/download/ProcesadorFichadas.exe`;
+
+      fetch(`https://api.github.com/repos/${GITHUB_REPO}/releases/latest`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (!data) return;
+          if (data.tag_name) {
+            lblVersion.textContent = data.tag_name.replace(/^v/i, "");
+          }
+          if (Array.isArray(data.assets)) {
+            const exeAsset = data.assets.find(a => a.name && a.name.toLowerCase().endsWith(".exe"));
+            if (exeAsset) {
+              if (exeAsset.browser_download_url) {
+                btnDownload.href = exeAsset.browser_download_url;
+              }
+              if (exeAsset.size) {
+                const mb = (exeAsset.size / (1024 * 1024)).toFixed(1);
+                lblSize.textContent = `Archivo único ejecutable (${mb} MB)`;
+              }
+            }
+          }
+        })
+        .catch(() => {});
+    } else {
+      btnDownload.addEventListener("click", function (e) {
+        if (btnDownload.getAttribute("href") === "#") {
+          e.preventDefault();
+          alert("El enlace de descarga se activará automáticamente una vez publicado el ejecutable en la sección Releases del repositorio de GitHub.");
+        }
+      });
+    }
+  </script>
+</body>
+</html>

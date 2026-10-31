@@ -1,0 +1,16 @@
+# Archivos compilados y temporales de Python / PyInstaller
+__pycache__/
+*.py[cod]
+build/
+dist/
+*.spec
+update_temp.exe
+updater.bat
+
+# Protección de Privacidad (PII): Prohibido subir planillas o reportes de RRHH
+Entrega_Portable_Jefa/
+*.xls
+*.xlsx
+*.csv
+*.tsv
+*.zip
