@@ -1,5 +1,8 @@
 import datetime
-from typing import Dict, List, Optional, Set
+import os
+import re
+from typing import Dict, List, Optional, Set, Union
+import zipfile
 import openpyxl
 from openpyxl.formatting.rule import FormulaRule
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -9,6 +12,7 @@ import pandas as pd
 
 from src.config import FONT_FAMILY, OUTPUT_COLUMNS, SUMMARY_COLUMNS
 from src.processor import (
+    calcular_minutos_trabajados,
     filtrar_dataframe_según_modo,
     generar_resumen_por_empleado,
 )
@@ -38,20 +42,113 @@ def _parsear_hora_excel(valor: object) -> object:
     return texto
 
 
+def _hhmm_a_fraccion_dia(texto_hhmm: object) -> Optional[float]:
+    """
+    Convierte una cadena 'HH:MM' o '[H]:MM' en fracción de día de Excel (minutos / 1440.0)
+    para almacenar el valor pre-calculado en caché dentro del XML del archivo .xlsx.
+    """
+    if texto_hhmm is None or pd.isna(texto_hhmm):
+        return None
+    s = str(texto_hhmm).strip()
+    if not s or ":" not in s:
+        return None
+    partes = s.split(":")
+    if len(partes) != 2:
+        return None
+    try:
+        horas = int(partes[0])
+        minutos = int(partes[1])
+        total_mins = horas * 60 + minutos
+        return total_mins / 1440.0
+    except ValueError:
+        return None
+
+
+def _inyectar_valores_cache_xlsx(
+    ruta_xlsx: str,
+    cache_por_hoja: Dict[str, Dict[str, Optional[Union[int, float]]]],
+) -> None:
+    """
+    Post-procesa el archivo .xlsx generado por openpyxl para inyectar los resultados
+    pre-calculados (<v>...</v>) junto a cada fórmula (<f>...</f>).
+    Esto garantiza que Excel muestre el 100% de las horas y totales de inmediato
+    incluso cuando el archivo se abre en 'Vista Protegida' (antes de 'Habilitar edición').
+    """
+    patron_celda_formula = re.compile(
+        r'<c\s+r="([A-Z]+\d+)"([^>]*)><f>([^<]*)</f>(?:<v></v>|<v/>)?</c>'
+    )
+    patron_celda_vacia_num = re.compile(
+        r'(<c\b[^>]*?)\s+t="n"(\s*/>|\s*></c>)'
+    )
+
+    ruta_temp = f"{ruta_xlsx}.tmp"
+    try:
+        with zipfile.ZipFile(ruta_xlsx, "r") as zin, zipfile.ZipFile(
+            ruta_temp, "w", compression=zipfile.ZIP_DEFLATED
+        ) as zout:
+            for item in zin.infolist():
+                contenido = zin.read(item.filename)
+                if item.filename in cache_por_hoja:
+                    mapa_celdas = cache_por_hoja[item.filename]
+                    xml_str = contenido.decode("utf-8")
+
+                    # Limpiar atributo t="n" en celdas vacías sin valor
+                    xml_str = patron_celda_vacia_num.sub(r"\1\2", xml_str)
+
+                    def _reemplazar_formula(match: re.Match) -> str:
+                        ref = match.group(1)
+                        attrs = match.group(2)
+                        formula_xml = match.group(3)
+                        if ref not in mapa_celdas:
+                            return match.group(0)
+
+                        val = mapa_celdas[ref]
+                        attrs_limpios = re.sub(r'\s+t="[^"]*"', "", attrs)
+                        if val is None:
+                            return (
+                                f'<c r="{ref}"{attrs_limpios} t="str">'
+                                f"<f>{formula_xml}</f><v/></c>"
+                            )
+                        if isinstance(val, int):
+                            val_str = str(val)
+                        else:
+                            val_str = f"{val:.16g}"
+                        return (
+                            f'<c r="{ref}"{attrs_limpios}>'
+                            f"<f>{formula_xml}</f><v>{val_str}</v></c>"
+                        )
+
+                    xml_str = patron_celda_formula.sub(
+                        _reemplazar_formula, xml_str
+                    )
+                    contenido = xml_str.encode("utf-8")
+
+                zout.writestr(item, contenido)
+
+        os.replace(ruta_temp, ruta_xlsx)
+    except Exception:
+        if os.path.exists(ruta_temp):
+            try:
+                os.remove(ruta_temp)
+            except Exception:
+                pass
+
+
 def _estilizar_hoja_fichadas_dinamica(
     ws: Worksheet,
     df_datos: pd.DataFrame,
     columnas: List[str],
     columnas_centradas: Set[int],
-) -> None:
+) -> Dict[str, Optional[Union[int, float]]]:
     """
     Genera una hoja de fichadas (Hoja 1 o Hoja 3) con:
     - Horas nativas editables en Ingreso (D) y Salida (E) con formato 'hh:mm' centrado.
-    - Fórmula automática en vivo en Tiempo Transcurrido (F) que recalcula al instante
-      cuando el usuario escribe o corrige un Ingreso o Salida en Excel.
-    - Formato Condicional dinámico que ilumina en ámbar cuando falta la salida y se
-      quita automáticamente apenas el usuario escribe la hora de salida.
+    - Fórmula automática en vivo en Tiempo Transcurrido (F) con valor pre-calculado en caché
+      para visualización instantánea incluso en Vista Protegida.
+    - Formato Condicional dinámico y estilo de alerta en filas 'Sin salida'.
     """
+    cache_celdas: Dict[str, Optional[Union[int, float]]] = {}
+
     header_fill = PatternFill(
         start_color="112239", end_color="112239", fill_type="solid"
     )
@@ -98,8 +195,26 @@ def _estilizar_hoja_fichadas_dinamica(
         nro_id = valores_raw[0]
         nombre = valores_raw[1]
         fecha = valores_raw[2]
-        ingreso_val = _parsear_hora_excel(valores_raw[3])
-        salida_val = _parsear_hora_excel(valores_raw[4])
+        ingreso_str = "" if pd.isna(valores_raw[3]) else str(valores_raw[3]).strip()
+        salida_str = "" if pd.isna(valores_raw[4]) else str(valores_raw[4]).strip()
+        tiempo_str = "" if pd.isna(valores_raw[5]) else str(valores_raw[5]).strip()
+
+        ingreso_val = _parsear_hora_excel(ingreso_str)
+        salida_val = _parsear_hora_excel(salida_str)
+
+        # Calcular valor en caché para que se vea incluso en Vista Protegida
+        fraccion_tiempo = _hhmm_a_fraccion_dia(tiempo_str)
+        if (
+            fraccion_tiempo is None
+            and isinstance(ingreso_val, datetime.time)
+            and isinstance(salida_val, datetime.time)
+        ):
+            mins_calc = calcular_minutos_trabajados(
+                ingreso_val.strftime("%H:%M"), salida_val.strftime("%H:%M")
+            )
+            fraccion_tiempo = mins_calc / 1440.0
+
+        cache_celdas[f"F{row_idx}"] = fraccion_tiempo
 
         # Fórmula Excel en vivo: funciona tanto con horas nativas como con texto "HH:MM"
         formula_tiempo = (
@@ -110,13 +225,22 @@ def _estilizar_hoja_fichadas_dinamica(
         ws.append([nro_id, nombre, fecha, ingreso_val, salida_val, formula_tiempo])
         ws.row_dimensions[row_idx].height = 21
 
-        row_fill = even_row_fill if row_idx % 2 == 0 else odd_row_fill
+        es_sin_salida = salida_str == "Sin salida" or (
+            bool(ingreso_str) and not bool(salida_str)
+        )
+        if es_sin_salida:
+            row_fill = warn_row_fill
+        else:
+            row_fill = even_row_fill if row_idx % 2 == 0 else odd_row_fill
 
         for col_idx in range(1, len(columnas) + 1):
             cell = ws.cell(row=row_idx, column=col_idx)
             cell.fill = row_fill
             cell.border = cell_border
-            cell.font = cell_font
+            if es_sin_salida and col_idx == 5:
+                cell.font = warn_font
+            else:
+                cell.font = cell_font
 
             if col_idx in columnas_centradas:
                 cell.alignment = align_center
@@ -166,18 +290,22 @@ def _estilizar_hoja_fichadas_dinamica(
             max_len + 5, anchos_minimos.get(col_idx, 15)
         )
 
+    return cache_celdas
+
 
 def _estilizar_hoja_resumen_dinamica(
     ws: Worksheet,
     df_resumen: pd.DataFrame,
     columnas: List[str],
     max_row_hoja1: int,
-) -> None:
+) -> Dict[str, Optional[Union[int, float]]]:
     """
     Genera la Hoja 2 ('Resumen por Empleado') conectada mediante fórmulas dinámicas
-    a la Hoja 1 ('Fichadas Procesadas'), de modo que al agregar o editar horas en la
-    Hoja 1 se recalculen solos los días trabajados, horas totales y promedios.
+    a la Hoja 1 ('Fichadas Procesadas') y con todos los valores pre-calculados en caché
+    para que sean visibles al instante incluso en Vista Protegida.
     """
+    cache_celdas: Dict[str, Optional[Union[int, float]]] = {}
+
     header_fill = PatternFill(
         start_color="112239", end_color="112239", fill_type="solid"
     )
@@ -220,19 +348,38 @@ def _estilizar_hoja_resumen_dinamica(
         nro_id = valores_raw[0]
         nombre = valores_raw[1]
 
-        # Fórmulas Excel enlazadas en vivo con 'Fichadas Procesadas'
+        dias_fichaje_val = int(valores_raw[2]) if not pd.isna(valores_raw[2]) else 0
+        jornadas_comp_val = int(valores_raw[3]) if not pd.isna(valores_raw[3]) else 0
+        sin_salida_val = int(valores_raw[4]) if not pd.isna(valores_raw[4]) else 0
+        total_horas_frac = _hhmm_a_fraccion_dia(valores_raw[5]) or 0.0
+        promedio_frac = (
+            total_horas_frac / jornadas_comp_val
+            if jornadas_comp_val > 0
+            else 0.0
+        )
+
+        cache_celdas[f"C{row_idx}"] = dias_fichaje_val
+        cache_celdas[f"D{row_idx}"] = jornadas_comp_val
+        cache_celdas[f"E{row_idx}"] = sin_salida_val
+        cache_celdas[f"F{row_idx}"] = total_horas_frac
+        cache_celdas[f"G{row_idx}"] = promedio_frac
+
+        # Fórmulas Excel enlazadas en vivo con 'Fichadas Procesadas' (por Nro. ID y Nombre)
         f_dias_fichaje = (
             f"=COUNTIFS('Fichadas Procesadas'!$A$2:$A${h1_end},A{row_idx},"
+            f"'Fichadas Procesadas'!$B$2:$B${h1_end},B{row_idx},"
             f"'Fichadas Procesadas'!$D$2:$D${h1_end},\"<>\")"
         )
         f_jornadas_completas = (
             f"=COUNTIFS('Fichadas Procesadas'!$A$2:$A${h1_end},A{row_idx},"
+            f"'Fichadas Procesadas'!$B$2:$B${h1_end},B{row_idx},"
             f"'Fichadas Procesadas'!$F$2:$F${h1_end},\">0\")"
         )
         f_dias_sin_salida = f"=MAX(0,C{row_idx}-D{row_idx})"
         f_total_horas = (
             f"=SUMIFS('Fichadas Procesadas'!$F$2:$F${h1_end},"
-            f"'Fichadas Procesadas'!$A$2:$A${h1_end},A{row_idx})"
+            f"'Fichadas Procesadas'!$A$2:$A${h1_end},A{row_idx},"
+            f"'Fichadas Procesadas'!$B$2:$B${h1_end},B{row_idx})"
         )
         f_promedio_diario = f"=IF(D{row_idx}>0,F{row_idx}/D{row_idx},0)"
 
@@ -278,6 +425,8 @@ def _estilizar_hoja_resumen_dinamica(
             col_idx, len(str(col_name)) + 6
         )
 
+    return cache_celdas
+
 
 def exportar_excel_profesional(
     df_limpio: pd.DataFrame,
@@ -285,7 +434,8 @@ def exportar_excel_profesional(
     df_completo_original: Optional[pd.DataFrame] = None,
 ) -> Dict[str, int]:
     """
-    Exporta siempre un libro de Excel con el 100% de los datos traducidos y fórmulas en vivo:
+    Exporta siempre un libro de Excel con el 100% de los datos traducidos, fórmulas en vivo
+    y valores pre-calculados en caché (visibles incluso en Vista Protegida):
     - Hoja 1 ('Fichadas Procesadas'): El 100% de los registros del archivo original con cálculo
       automático de Tiempo Transcurrido y formato condicional al editar Ingreso o Salida.
     - Hoja 2 ('Resumen por Empleado'): Totalizador dinámico conectado a la Hoja 1.
@@ -308,7 +458,7 @@ def exportar_excel_profesional(
     # Hoja 1: Fichadas Procesadas (100% de los registros con fórmulas dinámicas)
     ws_principal = wb.active
     ws_principal.title = "Fichadas Procesadas"
-    _estilizar_hoja_fichadas_dinamica(
+    cache_h1 = _estilizar_hoja_fichadas_dinamica(
         ws=ws_principal,
         df_datos=df_todos_original,
         columnas=OUTPUT_COLUMNS,
@@ -317,7 +467,7 @@ def exportar_excel_profesional(
 
     # Hoja 2: Resumen por Empleado (Con fórmulas COUNTIFS / SUMIFS en vivo hacia Hoja 1)
     ws_resumen = wb.create_sheet(title="Resumen por Empleado")
-    _estilizar_hoja_resumen_dinamica(
+    cache_h2 = _estilizar_hoja_resumen_dinamica(
         ws=ws_resumen,
         df_resumen=df_resumen,
         columnas=SUMMARY_COLUMNS,
@@ -326,7 +476,7 @@ def exportar_excel_profesional(
 
     # Hoja 3: Solo Días con Fichaje (También con fórmulas dinámicas en vivo)
     ws_fichadas = wb.create_sheet(title="Solo Días con Fichaje")
-    _estilizar_hoja_fichadas_dinamica(
+    cache_h3 = _estilizar_hoja_fichadas_dinamica(
         ws=ws_fichadas,
         df_datos=df_solo_fichadas,
         columnas=OUTPUT_COLUMNS,
@@ -334,6 +484,15 @@ def exportar_excel_profesional(
     )
 
     wb.save(ruta_destino)
+
+    _inyectar_valores_cache_xlsx(
+        ruta_xlsx=ruta_destino,
+        cache_por_hoja={
+            "xl/worksheets/sheet1.xml": cache_h1,
+            "xl/worksheets/sheet2.xml": cache_h2,
+            "xl/worksheets/sheet3.xml": cache_h3,
+        },
+    )
 
     return {
         "hoja_1_fichadas": len(df_todos_original),
